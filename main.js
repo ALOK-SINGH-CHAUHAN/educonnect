@@ -300,10 +300,9 @@ async function handleLogin(event) {
             // Store user data in localStorage
             localStorage.setItem('user', JSON.stringify(result.user));
             
-            // Redirect or update UI as needed
+            // Redirect to dashboard
             setTimeout(() => {
-                // Here you would typically redirect to dashboard
-                showAlert(`Login successful! Role: ${result.user.role}`, 'info');
+                window.location.href = 'dashboard.html';
             }, 1500);
         } else {
             showAlert(result.message, 'danger');
