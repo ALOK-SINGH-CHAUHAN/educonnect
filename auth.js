@@ -22,12 +22,21 @@ router.post('/login', [
         const { identifier, password } = req.body;
 
         // Find user by email or username
-        const user = await User.findOne({
-            $or: [
-                { email: identifier },
-                { username: identifier }
-            ]
-        });
+        let user;
+        try {
+            user = await User.findOne({
+                $or: [
+                    { email: identifier },
+                    { username: identifier }
+                ]
+            });
+        } catch (dbError) {
+            console.error('Database query error during login:', dbError);
+            return res.status(500).json({
+                success: false,
+                message: 'Database connection error. Please try again later.'
+            });
+        }
 
         if (user && user.checkPassword(password)) {
             res.json({
@@ -71,12 +80,21 @@ router.post('/register', [
         const { username, email, password, fullName, role } = req.body;
 
         // Check if user already exists
-        const existingUser = await User.findOne({
-            $or: [
-                { email: email },
-                { username: username }
-            ]
-        });
+        let existingUser;
+        try {
+            existingUser = await User.findOne({
+                $or: [
+                    { email: email },
+                    { username: username }
+                ]
+            });
+        } catch (dbError) {
+            console.error('Database query error:', dbError);
+            return res.status(500).json({
+                success: false,
+                message: 'Database connection error. Please try again later.'
+            });
+        }
 
         if (existingUser) {
             if (existingUser.email === email) {
@@ -101,7 +119,25 @@ router.post('/register', [
         });
 
         newUser.setPassword(password);
-        await newUser.save();
+        
+        try {
+            await newUser.save();
+        } catch (saveError) {
+            console.error('User save error:', saveError);
+            if (saveError.code === 11000) {
+                // Duplicate key error
+                const field = Object.keys(saveError.keyPattern)[0];
+                const message = field === 'email' ? 'Email already registered' : 'Username already taken';
+                return res.status(409).json({
+                    success: false,
+                    message: message
+                });
+            }
+            return res.status(500).json({
+                success: false,
+                message: 'Failed to create user. Please try again.'
+            });
+        }
 
         res.json({
             success: true,
@@ -136,7 +172,14 @@ router.post('/check-availability', async (req, res) => {
             return res.json({ available: false });
         }
 
-        const exists = await User.findOne(query);
+        let exists;
+        try {
+            exists = await User.findOne(query);
+        } catch (dbError) {
+            console.error('Database query error during availability check:', dbError);
+            return res.json({ available: false });
+        }
+        
         res.json({ available: !exists });
 
     } catch (error) {
